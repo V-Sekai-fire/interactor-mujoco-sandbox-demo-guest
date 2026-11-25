@@ -50,13 +50,15 @@ check.(ask.(:ping, nil) == {:ok, :pong}, "ping answers {ok, pong}")
 check.(is_map(info) and info.name == "mujoco" and info.nq == 86 and info.nbody == 81 and length(info.bodies) == 81, "info carries name, nq, nbody and the body names")
 check.(Enum.all?([:ping, :info, :call, :batch, :cancel], &(&1 in info.commands)) and info.batch == "list", "info lists its commands and its batch style")
 
-{:ok, [bodies]} = ask.(:call, {"mjc_raw_fk", [{:in, frame.(100)}, {:out, nb}]})
+{:ok, {returned, [bodies]}} = ask.(:call, {"mjc_raw_fk", [{:in, frame.(100)}, {:out, nb}]})
 check.(worst.(bodies, expected.(100)) <= 1.0e-4, "call runs mjc_raw_fk and its out buffer is inside the hair gate")
+check.(returned == 81, "call returns the function's integer result with the out buffers: the body count")
+check.(ask.(:call, {"mjc_raw_nq", []}) == {:ok, {86, []}}, "call with no buffers returns just the result")
 {:ok, same} = ask.(:fk, frame.(100))
 check.(same == bodies, "the fk command and the generic call give the same bytes")
 {:ok, many} = ask.(:batch, {:fk, [frame.(0), frame.(400), frame.(803)]})
 check.(many == [expected_0 = elem(ask.(:fk, frame.(0)), 1), elem(ask.(:fk, frame.(400)), 1), elem(ask.(:fk, frame.(803)), 1)] and worst.(expected_0, expected.(0)) <= 1.0e-4, "batch gives one reply per item, equal to separate requests")
-{:ok, [names]} = ask.(:call, {"mjc_raw_body_names", [{:out, 4096}]})
+{:ok, {_, [names]}} = ask.(:call, {"mjc_raw_body_names", [{:out, 4096}]})
 check.(String.starts_with?(names, "world\0pelvis\0"), "call reads the body names through an out buffer")
 
 for {what, command, arg} <- [

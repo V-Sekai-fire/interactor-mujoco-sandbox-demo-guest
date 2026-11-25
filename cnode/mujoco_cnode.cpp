@@ -142,14 +142,17 @@ static std::string do_call(Node &node, const char *buf, int index, ei_x_buff &pa
 	if (error.empty() && args.size() > MAX_ARGS) {
 		error = "too_many_arguments";
 	}
+	std::uint64_t returned = 0;
 	if (error.empty()) {
 		try {
-			node.host->invoke(address, args);
+			returned = node.host->invoke(address, args);
 		} catch (const std::exception &) {
 			error = "guest_fault";
 		}
 	}
 	if (error.empty()) {
+		ei_x_encode_tuple_header(&payload, 2);
+		ei_x_encode_longlong(&payload, (long long)returned);
 		ei_x_encode_list_header(&payload, (long)outs.size());
 		for (const auto &o : outs) {
 			std::vector<std::uint8_t> bytes(o.second);
