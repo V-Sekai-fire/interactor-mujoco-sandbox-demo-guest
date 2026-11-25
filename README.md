@@ -1,4 +1,4 @@
-# interactor-mujoco-guest
+# interactor-mujoco-sandbox-demo-guest
 
 A physics library built as a RISC-V guest program that an engine project loads into a sandbox and steps from script.
 
