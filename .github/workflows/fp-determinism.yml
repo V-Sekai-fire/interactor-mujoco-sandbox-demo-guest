@@ -58,7 +58,8 @@ jobs:
           elixir tools/density/comment_density.exs guest/human.cpp guest/human.h guest/embed_tree.cmake \
             tools/human/human_check.gd tools/human/tendon_check.gd tools/human/vendor.exs \
             tools/elf/check_variant.exs tools/inverse/inverse_check.gd tools/determinism/state_check.gd \
-            tools/density/comment_density.exs
+            tools/density/comment_density.exs cnode/mujoco_host.h cnode/host_probe.cpp cnode/mujoco_cnode.cpp \
+            tools/build_guest.exs tools/build_cnode.exs cnode/shape_check.exs
       - name: Variant size of the committed guests, and its planted control
         run: |
           set -e

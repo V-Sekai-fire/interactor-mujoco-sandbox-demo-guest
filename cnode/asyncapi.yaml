@@ -1,0 +1,403 @@
+asyncapi: 3.1.0
+info:
+  title: MuJoCo guest Erlang node
+  version: 0.1.0
+  description: >
+    An Erlang C node (erl_interface) that runs the double-precision MuJoCo guest ELF with the MS-Human-700 model in libriscv, without
+    Godot, and answers requests from Elixir. It follows the message shape agreed for all the Erlang C nodes (fire-21's
+    interactor-guest-cnode, docs/message-shape.md): a request is the tuple {Command, Ref, Arg} and the reply goes to the sender's pid
+    as {Ref, {ok, Term}} or {Ref, {error, Reason}}, with every error reason a binary. The node loads the model, which takes several
+    seconds, before it publishes with epmd, so a node that answers is ready. It serves one connection at a time and one request at a
+    time. Binaries carry little-endian float64 numbers. The server protocol is named erlang-distribution, as in
+    interactor-persona-frontier's service/turbo-cluster.asyncapi.yaml.
+  license:
+    name: Apache-2.0
+servers:
+  local:
+    host: localhost
+    protocol: erlang-distribution
+    description: >
+      The node is named mujoco@ followed by this machine's short host name, listens on a port it gets from the system and publishes
+      it with epmd (port 4369). The cookie is read from the MUJOCO_COOKIE environment variable and is never printed. A client
+      connects with Node.connect and sends to any registered name, for example {:mujoco, node}; a C node cannot register a name,
+      and a registered send to any name reaches it.
+defaultContentType: application/x-erlang-term
+channels:
+  requests:
+    address: mujoco
+    description: Where a client sends. Any registered name reaches the node.
+    messages:
+      ping:
+        $ref: '#/components/messages/ping'
+      info:
+        $ref: '#/components/messages/info'
+      call:
+        $ref: '#/components/messages/call'
+      fk:
+        $ref: '#/components/messages/fk'
+      batch:
+        $ref: '#/components/messages/batch'
+      cancel:
+        $ref: '#/components/messages/cancel'
+      stop:
+        $ref: '#/components/messages/stop'
+  replies:
+    address: sender
+    description: The pid of the sender, taken from the control message of the request.
+    messages:
+      pingReply:
+        $ref: '#/components/messages/pingReply'
+      infoReply:
+        $ref: '#/components/messages/infoReply'
+      callReply:
+        $ref: '#/components/messages/callReply'
+      fkReply:
+        $ref: '#/components/messages/fkReply'
+      batchReply:
+        $ref: '#/components/messages/batchReply'
+      stopReply:
+        $ref: '#/components/messages/stopReply'
+      errorReply:
+        $ref: '#/components/messages/errorReply'
+operations:
+  ping:
+    action: receive
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/ping'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/pingReply'
+        - $ref: '#/channels/replies/messages/errorReply'
+  info:
+    action: receive
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/info'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/infoReply'
+        - $ref: '#/channels/replies/messages/errorReply'
+  call:
+    action: receive
+    summary: Run a plain C entry point of the guest by symbol, with input and output buffers.
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/call'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/callReply'
+        - $ref: '#/channels/replies/messages/errorReply'
+  fk:
+    action: receive
+    summary: Forward kinematics of one pose, kinematics only.
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/fk'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/fkReply'
+        - $ref: '#/channels/replies/messages/errorReply'
+  batch:
+    action: receive
+    summary: One command over a list of arguments, one reply term per item; a refused item refuses the whole batch.
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/batch'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/batchReply'
+        - $ref: '#/channels/replies/messages/errorReply'
+  cancel:
+    action: receive
+    summary: Nothing here runs long, so this always answers an error.
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/cancel'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/errorReply'
+  stop:
+    action: receive
+    channel:
+      $ref: '#/channels/requests'
+    messages:
+      - $ref: '#/channels/requests/messages/stop'
+    reply:
+      channel:
+        $ref: '#/channels/replies'
+      messages:
+        - $ref: '#/channels/replies/messages/stopReply'
+components:
+  messages:
+    ping:
+      payload:
+        $ref: '#/components/schemas/pingRequest'
+    info:
+      payload:
+        $ref: '#/components/schemas/infoRequest'
+    call:
+      payload:
+        $ref: '#/components/schemas/callRequest'
+    fk:
+      payload:
+        $ref: '#/components/schemas/fkRequest'
+    batch:
+      payload:
+        $ref: '#/components/schemas/batchRequest'
+    cancel:
+      payload:
+        $ref: '#/components/schemas/cancelRequest'
+    stop:
+      payload:
+        $ref: '#/components/schemas/stopRequest'
+    pingReply:
+      payload:
+        $ref: '#/components/schemas/pingReply'
+    infoReply:
+      payload:
+        $ref: '#/components/schemas/infoReply'
+    callReply:
+      payload:
+        $ref: '#/components/schemas/callReply'
+    fkReply:
+      payload:
+        $ref: '#/components/schemas/fkReply'
+    batchReply:
+      payload:
+        $ref: '#/components/schemas/batchReply'
+    stopReply:
+      payload:
+        $ref: '#/components/schemas/stopReply'
+    errorReply:
+      payload:
+        $ref: '#/components/schemas/errorReply'
+  schemas:
+    Ref:
+      type: string
+      description: An Erlang reference made by the client, returned unchanged in the reply.
+    Binary:
+      type: string
+      format: binary
+    Nothing:
+      type: 'null'
+      description: The Erlang atom nil, or any term; the command ignores it.
+    Qpos:
+      allOf:
+        - $ref: '#/components/schemas/Binary'
+      description: nq (86) little-endian float64 generalised positions, 688 bytes; the free root first, as in the retargeted walk.
+    Bodies:
+      allOf:
+        - $ref: '#/components/schemas/Binary'
+      description: nbody (81) times 7 little-endian float64 numbers, 4536 bytes, in body-id order, the world body first; each body is x y z then the quaternion w x y z, in metres.
+    CallArgument:
+      description: An integer, or a tuple {in, Binary} copied into guest memory, or {out, Size} read back after the call. At most six.
+      oneOf:
+        - type: integer
+        - type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            - const: in
+            - $ref: '#/components/schemas/Binary'
+        - type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            - const: out
+            - type: integer
+              minimum: 0
+              maximum: 67108864
+    pingRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: ping
+        - $ref: '#/components/schemas/Ref'
+        - $ref: '#/components/schemas/Nothing'
+    infoRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: info
+        - $ref: '#/components/schemas/Ref'
+        - $ref: '#/components/schemas/Nothing'
+    callRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: call
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          minItems: 2
+          maxItems: 2
+          description: '{Symbol, Arguments}: the symbol is an atom or a binary, the arguments a list.'
+          items:
+            - type: string
+            - type: array
+              maxItems: 6
+              items:
+                $ref: '#/components/schemas/CallArgument'
+    fkRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: fk
+        - $ref: '#/components/schemas/Ref'
+        - $ref: '#/components/schemas/Qpos'
+    batchRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: batch
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          minItems: 2
+          maxItems: 2
+          description: '{Command, [Argument]}: any command but batch, with one argument per item.'
+          items:
+            - type: string
+            - type: array
+    cancelRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: cancel
+        - $ref: '#/components/schemas/Ref'
+        - $ref: '#/components/schemas/Ref'
+    stopRequest:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        - const: stop
+        - $ref: '#/components/schemas/Ref'
+        - $ref: '#/components/schemas/Nothing'
+    pingReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {ok, pong}}'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: ok
+            - const: pong
+    infoReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {ok, Info}}'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: ok
+            - type: object
+              required: [name, version, commands, batch, nq, nbody, bodies]
+              properties:
+                name:
+                  const: mujoco
+                version:
+                  type: string
+                commands:
+                  type: array
+                  items:
+                    type: string
+                batch:
+                  const: list
+                nq:
+                  const: 86
+                nbody:
+                  const: 81
+                bodies:
+                  type: array
+                  items:
+                    type: string
+    callReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {ok, {Result, Outputs}}}: the guest function''s integer result as a signed 64-bit number, and the out buffers in the order they were given.'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: ok
+            - type: array
+              minItems: 2
+              maxItems: 2
+              items:
+                - type: integer
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Binary'
+    fkReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {ok, Bodies}}'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: ok
+            - $ref: '#/components/schemas/Bodies'
+    batchReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {ok, [Term]}}: the payload of each item, in order.'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: ok
+            - type: array
+    stopReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {ok, ok}}, after which the node ends.'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: ok
+            - const: ok
+    errorReply:
+      type: array
+      minItems: 2
+      maxItems: 2
+      description: '{Ref, {error, Reason}}. Reasons: unknown_command, unknown_symbol, bad_qpos_size, fk_needs_a_binary, fk_failed, call_needs_symbol_and_arguments, call_needs_an_argument_list, bad_argument, in_needs_a_binary, out_needs_a_size, too_many_arguments, guest_fault, batch_needs_a_command_and_a_list, batch_needs_a_list, and "not cancellable".'
+      items:
+        - $ref: '#/components/schemas/Ref'
+        - type: array
+          items:
+            - const: error
+            - $ref: '#/components/schemas/Binary'
