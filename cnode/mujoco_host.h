@@ -118,6 +118,24 @@ public:
 		return true;
 	}
 
+	std::uint64_t symbol(const std::string &name) const { return machine->address_of(name); }
+	std::uint64_t alloc(std::size_t bytes) { return machine->arena().malloc(bytes); }
+	void release(std::uint64_t address) { machine->arena().free(address); }
+	void write(std::uint64_t address, const void *from, std::size_t bytes) { machine->copy_to_guest(address, from, bytes); }
+	void read(void *to, std::uint64_t address, std::size_t bytes) { machine->copy_from_guest(to, address, bytes); }
+
+	std::uint64_t invoke(std::uint64_t address, const std::vector<std::uint64_t> &a) {
+		switch (a.size()) {
+			case 0: return machine->vmcall<CALL_INSTRUCTIONS>(address);
+			case 1: return machine->vmcall<CALL_INSTRUCTIONS>(address, a[0]);
+			case 2: return machine->vmcall<CALL_INSTRUCTIONS>(address, a[0], a[1]);
+			case 3: return machine->vmcall<CALL_INSTRUCTIONS>(address, a[0], a[1], a[2]);
+			case 4: return machine->vmcall<CALL_INSTRUCTIONS>(address, a[0], a[1], a[2], a[3]);
+			case 5: return machine->vmcall<CALL_INSTRUCTIONS>(address, a[0], a[1], a[2], a[3], a[4]);
+			default: return machine->vmcall<CALL_INSTRUCTIONS>(address, a[0], a[1], a[2], a[3], a[4], a[5]);
+		}
+	}
+
 	bool trip_unknown_ecall(int number) {
 		const std::size_t before = unknown.size();
 		Machine64::on_unhandled_syscall(*machine, (std::size_t)number);
