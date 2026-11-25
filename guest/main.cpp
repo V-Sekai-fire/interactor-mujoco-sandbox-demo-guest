@@ -746,3 +746,78 @@ int main() {
 	ADD_API_FUNCTION(mjc_geom_table, "PackedFloat64Array", "", "Geoms, stride 13: body id, type, contype, conaffinity, size xyz, world pos xyz, world z axis xyz");
 	halt();
 }
+
+// Plain entry points for a host that is not Godot: raw pointers in guest memory, no Variant.
+extern "C" {
+__attribute__((used)) int mjc_raw_load_human() {
+	free_people();
+	if (g_data != nullptr) {
+		mj_deleteData(g_data);
+		g_data = nullptr;
+	}
+	if (g_model != nullptr) {
+		mj_deleteModel(g_model);
+		g_model = nullptr;
+	}
+	g_human_error.clear();
+	g_human_kept.clear();
+	g_model = human::build(-1, g_human_error, g_human_kept);
+	if (g_model == nullptr) {
+		return 0;
+	}
+	g_data = mj_makeData(g_model);
+	if (g_data == nullptr) {
+		return 0;
+	}
+	mj_forward(g_model, g_data);
+	return 1;
+}
+
+__attribute__((used)) int mjc_raw_nq() {
+	return g_model == nullptr ? 0 : (int)g_model->nq;
+}
+
+__attribute__((used)) int mjc_raw_nbody() {
+	return g_model == nullptr ? 0 : (int)g_model->nbody;
+}
+
+// qpos has nq doubles; out receives nbody * 7 (x y z, qw qx qy qz). Kinematics only.
+__attribute__((used)) int mjc_raw_fk(const double *qpos, double *out) {
+	if (g_model == nullptr || g_data == nullptr) {
+		return 0;
+	}
+	for (int i = 0; i < g_model->nq; i++) {
+		g_data->qpos[i] = qpos[i];
+	}
+	mj_kinematics(g_model, g_data);
+	for (int i = 0; i < g_model->nbody; i++) {
+		for (int k = 0; k < 3; k++) {
+			out[i * 7 + k] = g_data->xpos[i * 3 + k];
+		}
+		for (int k = 0; k < 4; k++) {
+			out[i * 7 + 3 + k] = g_data->xquat[i * 4 + k];
+		}
+	}
+	return (int)g_model->nbody;
+}
+
+// Body names, each ending in a zero byte, written to buf; returns the bytes needed.
+__attribute__((used)) int mjc_raw_body_names(char *buf, int cap) {
+	if (g_model == nullptr) {
+		return 0;
+	}
+	int used = 0;
+	for (int i = 0; i < g_model->nbody; i++) {
+		const char *name = mj_id2name(g_model, mjOBJ_BODY, i);
+		const std::string s = name == nullptr ? std::string() : std::string(name);
+		if (used + (int)s.size() + 1 <= cap) {
+			for (size_t k = 0; k < s.size(); k++) {
+				buf[used + (int)k] = s[k];
+			}
+			buf[used + (int)s.size()] = 0;
+		}
+		used += (int)s.size() + 1;
+	}
+	return used;
+}
+}
