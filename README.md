@@ -1,4 +1,4 @@
-# interactor-mujoco-sandbox-demo
+# interactor-mujoco-guest
 
 A physics library built as a RISC-V guest program that an engine project loads into a sandbox and steps from script.
 
@@ -14,6 +14,23 @@ The host owns the tick: every step happens because the script asked for one, so 
 The import registers the sandbox extension on a fresh clone.
 
 To rebuild the guest, configure `guest/` with CMake, using `third_party/riscv64-sysroot/toolchain.cmake` as the toolchain file, and copy the built `mjstep` program to `project/plans/mujoco.elf`, the path the host loads.
+
+## The guest ELF and the Erlang node
+
+Two things are built from this repository, and neither is committed.
+
+    elixir tools/build_guest.exs --llvm-bin <clang 23.1.1 bin> --sandbox-api <contract-guest-runtime>/vendor/sandbox-api --out mujoco.human.double.elf
+    elixir tools/build_cnode.exs --libriscv <godot-sandbox fork>/ext/libriscv --out build-cnode
+
+`build_guest.exs` makes the double-precision guest with the MS-Human-700 model. It needs clang, lld and llvm-ar 23.1.1 or newer, because `libmujoco.a` holds LLVM 23 bitcode; an older clang fails to link it. `tools/toolchain/pixi.toml` pins that toolchain. A run from a clean directory gave a guest with the same sha256 as the one that was tested.
+
+`build_cnode.exs` makes `mujoco_cnode`, an Erlang C node that runs the same ELF with libriscv and no Godot, and `host_probe`, which compares its forward kinematics with reference body placements. The guest exports plain `mjc_raw_*` functions for this (load, `nq`, body count, forward kinematics only, body names), because the Godot entry points pass arrays as engine Variants that only Godot can hold.
+
+Elixir talks to the node with `send({:any, node}, {self(), request})`: `:info` answers `{:ok, nq, nbody, names}`, `{:fk, <<qpos as float64>>}` answers `{:ok, <<bodies as float64>>}` (7 numbers a body: x y z, then w x y z), and `:stop` ends it. The cookie comes from `MUJOCO_COOKIE`. The node loads the model before it publishes, which takes several seconds.
+
+Measured on one machine, 804 frames of a retargeted walk against Python's MuJoCo: 0.000000000 m and 7.4e-6 degrees at the worst, 1.2 to 1.5 ms a pose in the interpreter. The Godot path (`mjc_forward`, which also runs the muscle model) takes 18 ms interpreted and 3.7 to 4.6 ms binary translated. The node's own binary translation was not measured.
+
+`.github/workflows/release.yml` builds both on a tag and attaches them with `SHA256SUMS`. It was written without being run.
 
 ## Vendored dependencies
 
