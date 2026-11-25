@@ -8,8 +8,8 @@ info:
     interactor-guest-cnode, docs/message-shape.md): a request is the tuple {Command, Ref, Arg} and the reply goes to the sender's pid
     as {Ref, {ok, Term}} or {Ref, {error, Reason}}, with every error reason a binary. The node loads the model, which takes several
     seconds, before it publishes with epmd, so a node that answers is ready. It serves one connection at a time and one request at a
-    time. Binaries carry little-endian float64 numbers. No existing document in this workspace names an Erlang distribution
-    transport, so the protocol below is named by what it is.
+    time. Binaries carry little-endian float64 numbers. The server protocol is named erlang-distribution, as in
+    interactor-persona-frontier's service/turbo-cluster.asyncapi.yaml.
   license:
     name: Apache-2.0
 servers:
